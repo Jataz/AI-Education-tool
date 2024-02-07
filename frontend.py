@@ -49,8 +49,8 @@ if 'content_response' in st.session_state:
     st.info(st.session_state['content_response']['content'])
 
 if 'question_response' in st.session_state:
-    st.write("### Question")
-    st.write(st.session_state['question_response']['question'])
+    st.markdown("### Question")
+    st.info(st.session_state['question_response']['question'])
     
     # Handling student's answer and feedback only after a question is available
     student_answer = st.text_area("Your Answer:", key="student_answer")
