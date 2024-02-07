@@ -1,19 +1,25 @@
-from flask import Flask, render_template, request, jsonify
-
-from flask_executor import Executor
-import openai
-
 import asyncio
-
-client = openai.OpenAI(api_key = "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")
+from flask import Flask, request, jsonify
+import openai
+from concurrent.futures import ThreadPoolExecutor
+import functools
 
 app = Flask(__name__)
-executor = Executor(app)
+# Initialize OpenAI client with your API key
+client = openai.OpenAI(api_key="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")
 
+# Create a thread pool executor for running synchronous OpenAI API calls asynchronously
+executor = ThreadPoolExecutor()
+
+async def run_in_executor(func, *args, **kwargs):
+    loop = asyncio.get_running_loop()
+    func_partial = functools.partial(func, *args, **kwargs)
+    return await loop.run_in_executor(executor, func_partial)
 
 async def generate_educational_content(topic):
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",  # Make sure this is the correct model
+    response = await run_in_executor(
+        client.chat.completions.create,
+        model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are a knowledgeable assistant."},
             {"role": "user", "content": f"Write an educational context about {topic}."}
@@ -22,8 +28,9 @@ async def generate_educational_content(topic):
     return response.choices[0].message.content
 
 async def generate_question(topic):
-    content = await generate_educational_content(topic)  # Await the coroutine here
-    question_response = client.chat.completions.create(
+    content = await generate_educational_content(topic)
+    question_response = await run_in_executor(
+        client.chat.completions.create,
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are a knowledgeable assistant."},
@@ -33,9 +40,9 @@ async def generate_question(topic):
     question = question_response.choices[0].message.content.strip()
     return content, question
 
-
 async def assess_answer(question, student_answer):
-    assessment_response = client.chat.completions.create(
+    assessment_response = await run_in_executor(
+        client.chat.completions.create,
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are a knowledgeable assistant."},
@@ -43,62 +50,39 @@ async def assess_answer(question, student_answer):
         ]
     )
     assessment_str = assessment_response.choices[0].message.content
-    
     return assessment_str
 
-def run_async(func):
-    def wrapper(*args, **kwargs):
-        future = executor.submit(asyncio.run, func(*args, **kwargs))
-        return future.result()
-    return wrapper
-
-# Flask routes remain the same
-
-def run_async(func):
-    def wrapper(*args, **kwargs):
-        future = executor.submit(asyncio.run, func(*args, **kwargs))
-        return future.result()
-    return wrapper
-
 @app.route('/generate_content', methods=['POST'])
-def generate_content():
+async def generate_content():
     data = request.json
     topic = data.get('topic')
     if not topic:
         return jsonify({'error': 'Topic is required'}), 400
     
-    content = run_async(generate_educational_content)(topic)
+    content = await generate_educational_content(topic)
     return jsonify({'content': content})
 
 @app.route('/generate_question', methods=['POST'])
 async def generate_question_endpoint():
-    data = request.get_json()
+    data = request.json
     topic = data.get('topic')
     if not topic:
         return jsonify({'error': 'Topic is required'}), 400
     
     content, question = await generate_question(topic)
-    
-    # Convert content and question to strings
-    content_str = str(content)
-    question_str = str(question)
-
-    return jsonify({'content': content_str, 'question': question_str})
-
+    return jsonify({'content': content, 'question': question})
 
 @app.route('/assess_answer', methods=['POST'])
 async def assess_answer_endpoint():
-    data = request.get_json()
+    data = request.json
     question = data.get('question')
     answer = data.get('answer')
     if not question or not answer:
         return jsonify({'error': 'Question and answer are required'}), 400
     
-    # Generate the assessment using the question and answer
-    assessment_str = await assess_answer(question, answer)
-
-    
-    return jsonify({'assessment': assessment_str})
+    assessment = await assess_answer(question, answer)
+    return jsonify({'assessment': assessment})
 
 if __name__ == '__main__':
-     asyncio.run(app.run(debug=True))
+    # Use an ASGI server like Hypercorn or Uvicorn for production
+    app.run(debug=True)
