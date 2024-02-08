@@ -5,7 +5,7 @@ import openai
 
 import asyncio
 
-client = openai.OpenAI(api_key = "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")
+client = openai.OpenAI(api_key = "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")
 
 app = Flask(__name__)
 executor = Executor(app)

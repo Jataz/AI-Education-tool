@@ -48,6 +48,13 @@ if 'content_response' in st.session_state:
     st.markdown("### Context")
     st.info(st.session_state['content_response']['content'])
 
+    # Button to generate a new question based on the existing content
+    if st.button('Generate New Question'):
+        with st.spinner('Generating new question...'):
+            question_response = call_flask_endpoint("generate_question", {"topic": st.session_state['topic']})
+            if question_response:
+                st.session_state['question_response'] = question_response
+
 if 'question_response' in st.session_state:
     st.markdown("### Question")
     st.info(st.session_state['question_response']['question'])
