@@ -10,7 +10,8 @@ Before running the project, make sure you have the following prerequisites insta
 ## Backend Setup
 1. Create a virtual environment for the project.
 2. Install the required packages by running the following command in the terminal:pip install -r requirements.txt
-3. Run the server using the following command:python app.py
+3. You should have a valid chatgpt API key
+4. Run the server using the following command:python app.py
 The server will run at `http://localhost:5000/`.
 
 ## UI Setup
